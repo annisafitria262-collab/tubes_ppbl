@@ -1,0 +1,56 @@
+name: assessment
+description: "A new Flutter project for FitPlate Meal Planner & Calorie Counter."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI Icons
+  cupertino_icons: ^1.0.8
+
+  # ==========================================
+  # CORE (Dipakai Bersama)
+  # ==========================================
+  sqflite: ^2.3.0
+  sqflite_common_ffi_web: ^0.4.0 # Tambahan Annisa: Biar DB bisa di Chrome
+  path: ^1.8.3                   # Tambahan Annisa: Atur path DB
+  path_provider: ^2.1.5          # Di-upgrade ke versi Annisa
+  shared_preferences: ^2.5.5     # Di-upgrade ke versi Annisa
+
+  # ==========================================
+  # DOMAIN 1: ATHAYA (Input & Makanan)
+  # ==========================================
+  dio: ^5.4.0
+  flutter_typeahead: ^5.2.0
+
+  # ==========================================
+  # DOMAIN 2: ACA (Planning & Logistik)
+  # ==========================================
+  table_calendar: ^3.0.9
+  flutter_local_notifications: ^17.0.0
+
+  # ==========================================
+  # DOMAIN 3: ANNISA (Evaluasi & FitWrapped)
+  # ==========================================
+  screenshot: ^3.0.0
+  share_plus: ^13.1.0            # Di-upgrade ke versi Annisa
+  confetti: ^0.8.0               # Di-upgrade ke versi Annisa
+  fl_chart: ^0.65.0              # Tetap dibiarkan (Aman)
+  intl: ^0.20.2                  # Tambahan Annisa: Format Tanggal Rapormu
+  pedometer: ^4.2.0              # Tambahan Annisa: Sensor Langkah
+  permission_handler: ^12.0.3    # Tambahan Annisa: Izin Sensor
+  lottie: ^3.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
