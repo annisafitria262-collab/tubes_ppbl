@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/database/db_helper.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -75,13 +76,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
-                const Center(
-                  child: Text("🥗", style: TextStyle(fontSize: 80)),
+                
+                // ---> SULAP EMOJI JADI ANIMASI LOTTIE NUTRITION <---
+                Center(
+                  child: Lottie.asset(
+                    'assets/lotties/Nutrition.json', // Sesuai nama file JSON yang di-download
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.contain,
+                  ),
                 ),
+                
                 const SizedBox(height: 20),
-                const Text("Buat Akun", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32))),
+                const Center(
+                  child: Text(
+                    "Buat Akun", 
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32)),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 const SizedBox(height: 5),
-                Text("Bergabunglah dan evaluasi dietmu sekarang.", style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                Center(
+                  child: Text(
+                    "Bergabunglah dan evaluasi dietmu sekarang.", 
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 const SizedBox(height: 40),
 
                 // INPUT NAMA

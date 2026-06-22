@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 
 class WeeklyMealMatrix extends StatelessWidget {
   final List<List<int>> matrixData;
   final List<String> hariList;
   final List<String> waktuList;
+  final void Function(String hari, String waktu)? onCellTapped;
+  final void Function(String hari, String waktu)? onCellDoubleTapped;
 
   const WeeklyMealMatrix({
     super.key,
@@ -15,6 +16,8 @@ class WeeklyMealMatrix extends StatelessWidget {
     this.waktuList = const [
       'SARAPAN', 'MAKAN_SIANG', 'MAKAN_MALAM', 'CAMILAN'
     ],
+    this.onCellTapped,
+    this.onCellDoubleTapped,
   });
 
   String _shortWaktu(String w) {
@@ -196,14 +199,44 @@ class WeeklyMealMatrix extends StatelessWidget {
                       }),
                     ),
 
-                    // CustomPaint grid
+                    // CustomPaint grid wrapped with GestureDetector for tap/double-tap gestures
                     Expanded(
-                      child: SizedBox(
-                        height: 128,
-                        child: CustomPaint(
-                          painter: MealMatrixPainter(
-                              matrixData: matrixData),
-                        ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cellWidth = constraints.maxWidth / 7;
+                          const cellHeight = 128.0 / 4;
+
+                          return GestureDetector(
+                            onTapUp: (details) {
+                              if (onCellTapped != null) {
+                                final x = details.localPosition.dx;
+                                final y = details.localPosition.dy;
+                                int col = (x / cellWidth).floor().clamp(0, 6);
+                                int row = (y / cellHeight).floor().clamp(0, 3);
+                                if (col < hariList.length && row < waktuList.length) {
+                                  onCellTapped!(hariList[col], waktuList[row]);
+                                }
+                              }
+                            },
+                            onDoubleTapDown: (details) {
+                              if (onCellDoubleTapped != null) {
+                                final x = details.localPosition.dx;
+                                final y = details.localPosition.dy;
+                                int col = (x / cellWidth).floor().clamp(0, 6);
+                                int row = (y / cellHeight).floor().clamp(0, 3);
+                                if (col < hariList.length && row < waktuList.length) {
+                                  onCellDoubleTapped!(hariList[col], waktuList[row]);
+                                }
+                              }
+                            },
+                            child: SizedBox(
+                              height: 128,
+                              child: CustomPaint(
+                                painter: MealMatrixPainter(matrixData: matrixData),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],

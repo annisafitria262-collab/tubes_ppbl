@@ -39,9 +39,10 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
   int _langkahKakiRealTime = 0;
   StreamSubscription<StepCount>? _stepCountStream;
 
-  final List<String> _faktorSurplus = ['Banyak Ngemil', 'Kumpul Teman/Acara', 'Stres/Emosional', 'Utang Defisit', 'Gorengan/Manis'];
-  final List<String> _faktorDefisit = ['Lupa Makan', 'Sibuk Tugas/Kerja', 'Sengaja Puasa', 'Lagi Sakit', 'Kelelahan'];
+  final List<String> _faktorSurplus = ['Unmindful Snacking', 'Social Trigger', 'Emotional Eating', 'Binge Eating', 'Carb Craving'];
+  final List<String> _faktorDefisit = ['Task Overload', 'Time Mismanagement', 'Physical Fatigue', 'Deliberate Fasting', 'Appetite Loss'];
   String _selectedFaktor = '';
+  String _diagnosisText = "";
 
   Future<void> _initPedometer() async {
     if (await Permission.activityRecognition.request().isGranted) {
@@ -54,7 +55,6 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
           String tanggalTersimpan = prefs.getString('pedometer_date') ?? '';
           int baseline = prefs.getInt('pedometer_baseline') ?? 0;
 
-          // Jika hari berganti (Jam 12 malam lewat), jadikan langkah saat ini sebagai Titik Nol
           if (tanggalTersimpan != tanggalHariIni) {
             baseline = event.steps;
             await prefs.setString('pedometer_date', tanggalHariIni);
@@ -62,10 +62,7 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
           }
 
           setState(() {
-            // Langkah Aktual = Sensor Android - Titik Nol Hari Ini
             int langkahAktual = event.steps - baseline;
-            
-            // Jaga-jaga kalau angkanya minus (karena HP restart, dll)
             _langkahKakiRealTime = langkahAktual < 0 ? 0 : langkahAktual; 
             _langkahCtrl.text = _langkahKakiRealTime.toString();
             _generateSmartDiagnosis(); 
@@ -159,67 +156,82 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
   }
 
   // ==========================================================
-  // 🧠 FUNGSI DIAGNOSIS: INTEGRASI TIPE DIET ACA & STRICT MODE ANNISA
+  // 🧠 FUNGSI DIAGNOSIS (VERSI BERSIH UI)
+  // ==========================================================
+  // ==========================================================
+  // 🧠 FUNGSI DIAGNOSIS (EXPERT SYSTEM & DECISION MATRIX)
   // ==========================================================
   void _generateSmartDiagnosis() {
     if (widget.evaluasiToEdit != null && !_isManualPedometer) return; 
 
+    double target = double.tryParse(_targetKaloriCtrl.text) ?? 2000;
+    double aktual = double.tryParse(_kaloriAktualCtrl.text) ?? 0;
     double karbo = double.tryParse(_karboCtrl.text) ?? 0;
     double lemak = double.tryParse(_lemakCtrl.text) ?? 0;
     double protein = double.tryParse(_proteinCtrl.text) ?? 0;
     
+    // Kita hitung dulu persentase pasti deviasinya (Selisih aktual vs target)
+    double deviasiPersen = target > 0 ? ((aktual - target) / target) * 100 : 0;
+
     String diagnosis = "";
-    
-    // 1. TARIK TIPE DIET DARI ACA!
     String tipeDiet = SharedPrefsHelper.defaultDietType; 
 
-    // 2. REALISASI STRICT MODE (Jika aktif, kita jadi wasit kejam!)
+    // 1. PENGECEKAN STRICT MODE (KASTA TERTINGGI: PELANGGARAN SISTEM)
     if (_isStrictMode) {
       if (tipeDiet == 'KETO' && karbo > 50) {
-        diagnosis = "🚨 PELANGGARAN KETO: Asupan Karbohidrat ($karbo g) melebihi batas ketosis! Mode ketat mendeteksi kegagalan sistematis.";
+        diagnosis = "🔴 [KRITIS] PELANGGARAN KETO: Asupan Karbo ($karbo g) merusak state ketosis! Sistem mendeteksi kegagalan fatal.";
       } else if (tipeDiet == 'LOW_CARB' && karbo > 100) {
-        diagnosis = "🚨 PELANGGARAN LOW CARB: Karbohidrat ($karbo g) terlalu tinggi untuk program ini.";
+        diagnosis = "🟠 [WARNING] PELANGGARAN LOW CARB: Karbo ($karbo g) terlalu tinggi, tren glukosa mulai naik.";
       } else if (tipeDiet == 'HIGH_PROTEIN' && protein < 80) {
-        diagnosis = "🚨 PELANGGARAN HIGH PROTEIN: Asupan Protein ($protein g) sangat rendah, waspada penyusutan massa otot massal.";
+        diagnosis = "🔴 [KRITIS] DEFISIT PROTEIN: Asupan cuma $protein g. Risiko tinggi penyusutan massa otot massal (Catabolism).";
       }
     }
 
-    // 3. JIKA TIDAK ADA PELANGGARAN STRICT MODE, GUNAKAN LOGIKA REGULAR
+    // 2. DECISION MATRIX BERDASARKAN STATUS DEVASI
     if (diagnosis.isEmpty) {
       if (_statusPilihan == 'TERCAPAI') {
-        _catatanCtrl.clear();
-        _selectedFaktor = '';
-        return; // Sempurna, tidak perlu diagnosis
-      } else if (_statusPilihan == 'SURPLUS') {
-        if (karbo > 150 && _langkahKakiRealTime < 3000) {
-          diagnosis = "Indikasi karbohidrat berlebih dengan aktivitas fisik Sedentary (kurang gerak).";
-        } else if (lemak > 70) {
-          diagnosis = "Indikasi konsumsi lipid/lemak melebihi rasio aman harian.";
-        } else if (_langkahKakiRealTime > 8000) {
-          diagnosis = "Aktivitas fisik sudah sangat baik, namun kalori tetap surplus (indikasi porsi makan over-limit).";
+        diagnosis = "🟢 [AMAN] Metrik stabil. Asupan kalori dan makronutrisi berkolerasi positif dengan target sistem.";
+      } 
+      else if (_statusPilihan == 'SURPLUS') {
+        if (deviasiPersen > 30 && _langkahKakiRealTime < 3000) {
+          // Gendut ekstrim + Mager
+          diagnosis = "🔴 [KRITIS] Surplus ekstrim (+${deviasiPersen.toStringAsFixed(1)}%) dipicu aktivitas Sedentary (< 3000 langkah). Risiko penumpukan lemak visceral!";
+        } else if (karbo > 200 && lemak > 80) {
+          // Kombinasi maut gula & minyak
+          diagnosis = "🔴 [KRITIS] Kombinasi maut High-Carb & High-Fat terdeteksi. Waspada lonjakan insulin drastis.";
+        } else if (deviasiPersen <= 15 && _langkahKakiRealTime > 8000) {
+          // Surplus dikit tapi aktivitasnya gila-gilaan (Terkompensasi)
+          diagnosis = "🟡 [INFO] Surplus ringan (+${deviasiPersen.toStringAsFixed(1)}%), namun terkompensasi oleh aktivitas fisik tinggi (${_langkahKakiRealTime} langkah). Masih sangat toleran.";
         } else {
-          diagnosis = "Asupan energi melampaui batas toleransi sistem.";
+          // Surplus standar
+          diagnosis = "🟠 [WARNING] Kalori surplus +${deviasiPersen.toStringAsFixed(1)}%. Segera evaluasi porsi makan atau tambah durasi kardio besok.";
         }
-      } else if (_statusPilihan == 'DEFISIT') {
-        if (_langkahKakiRealTime > 8000) {
-          diagnosis = "Aktivitas tinggi namun asupan energi rendah. Waspada penyusutan otot.";
+      } 
+      else if (_statusPilihan == 'DEFISIT') {
+        if (deviasiPersen < -30 && _langkahKakiRealTime > 10000) {
+          // Kurang makan ekstrim + Kerja rodi
+          diagnosis = "🔴 [KRITIS] Defisit ekstrim (${deviasiPersen.toStringAsFixed(1)}%) di tengah aktivitas sangat berat. Tubuh masuk fase kelaparan (Starvation Mode)!";
+        } else if (protein < 50) {
+          // Kurang makan + Otot ga dikasih makan
+          diagnosis = "🟠 [WARNING] Defisit kalori disertai malnutrisi protein. Target harian gagal mendukung pemulihan sel.";
+        } else if (deviasiPersen >= -15) {
+          // Defisit santai (Bagus buat nurunin BB)
+          diagnosis = "🟡 [INFO] Defisit wajar (${deviasiPersen.toStringAsFixed(1)}%). Sangat ideal untuk tren *cutting* (penurunan berat badan) yang sehat.";
         } else {
-          diagnosis = "Asupan nutrisi di bawah ambang batas harian.";
+          // Defisit standar
+          diagnosis = "🟠 [WARNING] Asupan kalori terlalu rendah (${deviasiPersen.toStringAsFixed(1)}%). Metabolisme basal bisa terganggu jika dibiarkan konstan.";
         }
       }
     }
 
-    String faktorTeks = _selectedFaktor.isNotEmpty ? _selectedFaktor : "";
-    _catatanCtrl.text = "Analisis Sistem: $diagnosis\n\nFaktor Tambahan: $faktorTeks";
+    setState(() {
+      _diagnosisText = diagnosis; // Tembak langsung ke UI!
+    });
   }
 
   void _onFaktorSelected(String faktor) {
     setState(() {
-      _selectedFaktor = faktor;
-      List<String> parts = _catatanCtrl.text.split('Faktor Tambahan:');
-      if (parts.isNotEmpty) {
-        _catatanCtrl.text = "${parts[0]}Faktor Tambahan: $faktor";
-      }
+      _selectedFaktor = faktor; // Cukup simpan statusnya
     });
   }
 
@@ -228,11 +240,13 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
       final jurnal = await DatabaseHelper.instance.getJurnalByEvaluasiId(widget.evaluasiToEdit!.id!);
       if (jurnal != null) {
         setState(() {
-          _catatanCtrl.text = jurnal.catatan ?? '';
+          _catatanCtrl.text = jurnal.catatan ?? ''; 
           
+          String dbRootCause = jurnal.rootCause.replaceAll('_', ' ').toLowerCase();
           List<String> semuaFaktor = [..._faktorSurplus, ..._faktorDefisit];
+          
           for (var faktor in semuaFaktor) {
-            if (_catatanCtrl.text.contains(faktor)) {
+            if (faktor.toLowerCase() == dbRootCause) {
               _selectedFaktor = faktor;
               break;
             }
@@ -305,7 +319,7 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
         final dataJurnal = JurnalModel(
           evaluasiId: evaluasiId, 
           rootCause: _selectedFaktor.isNotEmpty ? _selectedFaktor.replaceAll(' ', '_').toUpperCase() : _statusPilihan, 
-          catatan: _catatanCtrl.text, 
+          catatan: _catatanCtrl.text, // Murni hanya nyimpen curhatan user
           moodScore: 3,
           dibuatPada: DateTime.now().millisecondsSinceEpoch,
         );
@@ -335,7 +349,6 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        // ---> KUNCI PERBAIKAN: Menambahkan jarak ekstra di bagian bawah biar tombol tidak tertutup <---
         padding: EdgeInsets.only(
           left: 20,
           right: 20,
@@ -521,35 +534,118 @@ class _FormEvaluasiScreenState extends State<FormEvaluasiScreen> {
                           builder: (context) {
                             List<String> currentFaktorList = _statusPilihan == 'SURPLUS' ? _faktorSurplus : _faktorDefisit;
                             
-                            return Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: currentFaktorList.map((faktor) {
-                                bool isSelected = _selectedFaktor == faktor;
-                                return ChoiceChip(
-                                  label: Text(faktor, style: TextStyle(color: isSelected ? Colors.white : Colors.teal[800], fontSize: 12)),
-                                  selected: isSelected,
-                                  selectedColor: Colors.teal,
-                                  backgroundColor: Colors.teal[50],
-                                  onSelected: (bool selected) {
-                                    _onFaktorSelected(selected ? faktor : '');
-                                  },
-                                );
-                              }).toList(),
+                            IconData getIcon(String faktor) {
+                              switch(faktor) {
+                                case 'Unmindful Snacking': return Icons.cookie;
+                                case 'Social Trigger': return Icons.people_alt;
+                                case 'Emotional Eating': return Icons.mood_bad;
+                                case 'Binge Eating': return Icons.restaurant;
+                                case 'Carb Craving': return Icons.cake;
+                                case 'Task Overload': return Icons.work_history;
+                                case 'Time Mismanagement': return Icons.timer_off;
+                                case 'Physical Fatigue': return Icons.battery_alert;
+                                case 'Deliberate Fasting': return Icons.no_meals;
+                                case 'Appetite Loss': return Icons.trending_down;
+                                default: return Icons.help_outline;
+                              }
+                            }
+
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: currentFaktorList.map((faktor) {
+                                  bool isSelected = _selectedFaktor == faktor;
+                                  
+                                  return GestureDetector(
+                                    onTap: () => _onFaktorSelected(isSelected ? '' : faktor),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeInOut,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFF2E7D32) : Colors.white,
+                                        borderRadius: BorderRadius.circular(15),
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey[300]!,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: isSelected 
+                                          ? [BoxShadow(color: const Color(0xFF2E7D32).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))]
+                                          : [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))],
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            getIcon(faktor), 
+                                            color: isSelected ? Colors.white : Colors.grey[500],
+                                            size: 24,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            faktor, 
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.grey[700], 
+                                              fontSize: 11,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            )
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             );
                           }
                         ),
                         
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 25),
+
+                        // KARTU DIAGNOSIS SISTEM (READ-ONLY)
+                        if (_diagnosisText.isNotEmpty && (_statusPilihan == 'SURPLUS' || _statusPilihan == 'DEFISIT')) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey[50],
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.blueGrey[200]!),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.smart_toy, color: Colors.blueGrey, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Diagnosis Sistem Pakar", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueGrey)),
+                                      const SizedBox(height: 4),
+                                      Text(_diagnosisText, style: TextStyle(fontSize: 12, color: Colors.blueGrey[800], height: 1.4)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // KOTAK KETIKAN MURNI BUAT USER
                         TextFormField(
                           controller: _catatanCtrl,
-                          maxLines: 4,
+                          maxLines: 3,
                           decoration: InputDecoration(
-                            labelText: 'Detail Root Cause',
+                            labelText: 'Catatan Pribadi (Opsional)',
+                            hintText: 'Misal: Tadi khilaf jajan...',
                             alignLabelWithHint: true,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
-                          validator: (value) => value!.isEmpty ? 'Tolong tuliskan alasannya!' : null,
                         ),
                       ],
                     ],

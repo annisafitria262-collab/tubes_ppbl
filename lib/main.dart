@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart'; // 1. Tambahan Annisa (Wajib untuk format tanggal)
+import 'package:intl/date_symbol_data_local.dart';
+import 'features/domain_eval/screens/home_screen.dart';
 
 // Import Core
 import 'core/theme/theme.dart';
@@ -61,14 +62,7 @@ class MainNavigator extends StatefulWidget {
 class _MainNavigatorState extends State<MainNavigator> {
   int _selectedIndex = 0;
 
-  // List layar untuk masing-masing domain (Sekarang ada 4 halaman)
-  final List<Widget> _screens = [
-    const InputMakananScreen(),   // Index 0: Domain 1 (Input & Makanan temanmu)
-    const RencanaMakanScreen(),   // Index 1: Domain 2 (Planning & Logistik temanmu)
-    const EvaluasiListScreen(),   // Index 2: Domain 3 (Karya Masterpiece Annisa)
-    const SettingsScreen(),       // Index 3: Fitur Strict Mode Annisa
-  ];
-
+  // FUNGSI PINDAH TAB
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -77,15 +71,30 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   @override
   Widget build(BuildContext context) {
+    // Daftar screens diPINDAHKAN ke dalam fungsi build()!
+    // Karena di dalam sini, fungsi _onItemTapped sudah "hidup" dan siap dipanggil.
+    final List<Widget> screens = [
+      HomeScreen(onNavigate: _onItemTapped),  // Index 0: Tampilan Awal
+      const InputMakananScreen(),             // Index 1: Jurnal Makanan
+      const RencanaMakanScreen(),             // Index 2: Meal Plan
+      const EvaluasiListScreen(),             // Index 3: Evaluasi
+    ];
+
     return Scaffold(
-      body: _screens[_selectedIndex],
+      // Manggil layarnya sekarang pakai 'screens' (tanpa underscore)
+      body: screens[_selectedIndex], 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed, // WAJIB DITAMBAHKAN biar menu >= 4 tidak bug/bergeser
-        selectedItemColor: const Color(0xFF2E7D32), // Fresh Green
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF2E7D32),
         unselectedItemColor: Colors.grey,
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Beranda', 
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.restaurant_menu),
             label: 'Jurnal', 
@@ -97,11 +106,6 @@ class _MainNavigatorState extends State<MainNavigator> {
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Evaluasi', 
-          ),
-          // Tambahan menu tab ke-4 khusus untuk pengaturanmu
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Pengaturan', 
           ),
         ],
       ),

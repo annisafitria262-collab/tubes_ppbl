@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/database/db_helper.dart';
 import '../../../core/utils/shared_prefs_helper.dart';
 import '../../../../main.dart'; 
@@ -34,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Jika berhasil, simpan sesi ke memori
         await SharedPrefsHelper.setLoggedIn(true);
         await SharedPrefsHelper.setLoggedInUserName(user['nama']);
+        await SharedPrefsHelper.setLoggedInUserId(user['id']);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -74,14 +76,29 @@ class _LoginScreenState extends State<LoginScreen> {
               key: _formKey,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center, // Memastikan children default ke tengah
                 children: [
-                  const Center(
-                    child: Text("🥗", style: TextStyle(fontSize: 80)), // Bisa diganti 🍛 atau 🥘
+                  // ---> SULAP EMOJI JADI LOTTIE DI SINI <---
+                  Center(
+                    child: Lottie.asset(
+                      'assets/lotties/Nutrition.json',
+                      width: 180,
+                      height: 180,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  const Text("FitPlate", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32))),
+                  const Text(
+                    "FitPlate", 
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32)),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 5),
-                  Text("Mulai Analisis Gizi Harianmu", style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                  Text(
+                    "Mulai Analisis Gizi Harianmu", 
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 40),
 
                   // INPUT EMAIL

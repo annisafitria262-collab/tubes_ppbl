@@ -76,4 +76,45 @@ class SharedPrefsHelper {
       
   static Future<void> setLoggedInUserName(String value) async => 
       await _prefs.setString('logged_in_user_name', value);
+
+  static int get loggedInUserId => 
+      _prefs.getInt('logged_in_user_id') ?? 1; 
+      
+  static Future<void> setLoggedInUserId(int id) async => 
+      await _prefs.setInt('logged_in_user_id', id);
+
+  static Future<void> clearAuthData() async {
+    await _prefs.setBool('is_logged_in', false);
+    await _prefs.remove('logged_in_user_name');
+    await _prefs.remove('logged_in_user_id');
+  }
+
+  // ==========================================
+  // ---> NEW: MEMORI API MAKANAN HARIAN <---
+  // ==========================================
+  
+  static String get lastApiDate => 
+      _prefs.getString('last_api_date') ?? "";
+      
+  static Future<void> setLastApiDate(String date) async => 
+      await _prefs.setString('last_api_date', date);
+
+  static String get cachedMealName => 
+      _prefs.getString('cached_meal_name') ?? "Mencari inspirasi menu...";
+      
+  static Future<void> setCachedMealName(String name) async => 
+      await _prefs.setString('cached_meal_name', name);
+
+  static String get cachedMealCategory => 
+      _prefs.getString('cached_meal_category') ?? "";
+      
+  static Future<void> setCachedMealCategory(String category) async => 
+      await _prefs.setString('cached_meal_category', category);
+
+  // ---> TAMBAHAN BARU: WADAH UNTUK FOTO MAKANAN <---
+  static String get cachedMealThumb => 
+      _prefs.getString('cached_meal_thumb') ?? "";
+      
+  static Future<void> setCachedMealThumb(String url) async => 
+      await _prefs.setString('cached_meal_thumb', url);
 }

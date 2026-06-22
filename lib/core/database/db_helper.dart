@@ -2,9 +2,9 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-
 import '../../features/domain_eval/models/evaluasi_model.dart';
 import '../../features/domain_eval/models/jurnal_model.dart';
+import '../utils/shared_prefs_helper.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -33,7 +33,7 @@ class DatabaseHelper {
       final path = join(dbPath, filePath);
       return await openDatabase(
         path,
-        version: 5, // NAIK KE VERSI 5 UNTUK TABEL USERS
+        version: 6,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
         onConfigure: _onConfigure,
@@ -128,6 +128,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE evaluasi_harian (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 1,
         tanggal TEXT NOT NULL UNIQUE,
         target_kalori REAL NOT NULL,
         kalori_aktual REAL NOT NULL,
@@ -137,7 +138,8 @@ class DatabaseHelper {
         karbo_total REAL DEFAULT 0,
         lemak_total REAL DEFAULT 0,
         is_strict INTEGER DEFAULT 0,
-        langkah_kaki INTEGER DEFAULT 0
+        langkah_kaki INTEGER DEFAULT 0,
+        UNIQUE(user_id, tanggal)
       )
     ''');
 
@@ -179,6 +181,13 @@ class DatabaseHelper {
         )
       ''');
     }
+
+    if (oldVersion < 6) {
+      // Hapus constraint UNIQUE lama yang salah, dan tambahkan user_id
+      try {
+        await db.execute('ALTER TABLE evaluasi_harian ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
+      } catch (_) {}
+    }
   }
 
   // ==========================================
@@ -186,13 +195,26 @@ class DatabaseHelper {
   // ==========================================
   Future<int> insertEvaluasi(EvaluasiModel evaluasi) async {
     final db = await instance.database;
-    return await db.insert('evaluasi_harian', evaluasi.toMap(),
+    int currentUserId = SharedPrefsHelper.loggedInUserId; // Ambil KTP user saat ini
+    
+    Map<String, dynamic> data = evaluasi.toMap();
+    data['user_id'] = currentUserId; // Injeksi diam-diam tanpa ngerusak EvaluasiModel!
+
+    return await db.insert('evaluasi_harian', data,
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<EvaluasiModel>> getAllEvaluasi() async {
     final db = await instance.database;
-    final result = await db.query('evaluasi_harian', orderBy: 'tanggal DESC');
+    int currentUserId = SharedPrefsHelper.loggedInUserId;
+    
+    // Cuma narik data yang KTP-nya cocok dengan yang lagi login!
+    final result = await db.query(
+      'evaluasi_harian', 
+      where: 'user_id = ?', 
+      whereArgs: [currentUserId],
+      orderBy: 'tanggal DESC'
+    );
     return result.map((json) => EvaluasiModel.fromMap(json)).toList();
   }
 
@@ -235,14 +257,18 @@ class DatabaseHelper {
 
   Future<Map<String, int>> getRootCauseStats() async {
     final db = await instance.database;
-    final int batasWaktu =
-        DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+    int currentUserId = SharedPrefsHelper.loggedInUserId;
+    final int batasWaktu = DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+    
+    // Pamer skill SQL JOIN nih! Kita gabungin tabel jurnal dan evaluasi buat filter user_id
     final result = await db.rawQuery('''
-      SELECT root_cause, COUNT(*) as count 
-      FROM jurnal_deviasi 
-      WHERE dibuat_pada >= ?
-      GROUP BY root_cause
-    ''', [batasWaktu]);
+      SELECT j.root_cause, COUNT(*) as count 
+      FROM jurnal_deviasi j
+      JOIN evaluasi_harian e ON j.evaluasi_id = e.id
+      WHERE j.dibuat_pada >= ? AND e.user_id = ?
+      GROUP BY j.root_cause
+    ''', [batasWaktu, currentUserId]);
+    
     Map<String, int> stats = {};
     for (var row in result) {
       stats[row['root_cause'] as String] = row['count'] as int;

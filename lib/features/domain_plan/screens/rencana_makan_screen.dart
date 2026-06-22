@@ -10,6 +10,17 @@ import '../../domain_input/models/makanan_model.dart';
 import '../services/notification_service.dart';
 import '../../../core/utils/shared_prefs_helper.dart';
 
+// Custom Widgets
+import '../widgets/stat_chip.dart';
+import '../widgets/meal_plan_card.dart';
+import '../widgets/shopping_item_card.dart';
+import '../widgets/empty_state_view.dart';
+
+// Third-Party Libraries
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:confetti/confetti.dart';
+
 class RencanaMakanScreen extends StatefulWidget {
   const RencanaMakanScreen({super.key});
 
@@ -24,6 +35,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
   final MakananRepository _makananRepo = MakananRepository();
 
   late TabController _tabController;
+  late ConfettiController _confettiController;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
@@ -50,6 +62,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _selectedDay = _focusedDay;
     _loadData();
   }
@@ -57,6 +70,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -152,7 +166,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
 
   // ─────────────────── RENCANA MAKAN CRUD ───────────────────────────────
 
-  void _showTambahRencanaDialog() async {
+  void _showTambahRencanaDialog({String? initialHari, String? initialWaktu}) async {
     final makananList = await _makananRepo.getAllMakanan();
     if (!mounted) return;
 
@@ -174,8 +188,8 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
     }
 
     MakananModel? selectedMakanan = makananList.first;
-    String selectedHari = _hariList.first;
-    String selectedWaktu = _waktuList.first;
+    String selectedHari = initialHari ?? _hariList.first;
+    String selectedWaktu = initialWaktu ?? _waktuList.first;
     final gramCtrl = TextEditingController(text: '100');
 
     await showDialog(
@@ -761,6 +775,140 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
     );
   }
 
+  void _toggleRencanaStatus(RencanaMakanModel rencana) async {
+    final newStatus = rencana.status == 'DRAFT' ? 'AKTIF' : 'DRAFT';
+    final updated = RencanaMakanModel(
+      id: rencana.id,
+      makananId: rencana.makananId,
+      hari: rencana.hari,
+      waktuMakan: rencana.waktuMakan,
+      jumlahGram: rencana.jumlahGram,
+      mingguKe: rencana.mingguKe,
+      status: newStatus,
+    );
+    await _rencanaRepo.updateRencana(updated);
+    await _loadData();
+
+    if (mounted) {
+      Fluttertoast.showToast(
+        msg: "Status '${rencana.namaMakanan ?? ''}' diubah menjadi $newStatus",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: newStatus == 'AKTIF' ? const Color(0xFF2E7D32) : const Color(0xFF0D47A1),
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  void _showMealOptionsBottomSheet(RencanaMakanModel rencana) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              title: Text(rencana.namaMakanan ?? 'Menu Makanan',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${rencana.hari} - ${_formatWaktu(rencana.waktuMakan)}'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                rencana.status == 'DRAFT' ? Icons.check_circle : Icons.pending,
+                color: rencana.status == 'DRAFT' ? const Color(0xFF2E7D32) : const Color(0xFF0D47A1),
+              ),
+              title: Text(rencana.status == 'DRAFT' ? 'Aktifkan Rencana' : 'Jadikan Draft'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleRencanaStatus(rencana);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Color(0xFF0D47A1)),
+              title: const Text('Edit Porsi / Waktu'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditRencanaDialog(rencana);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Hapus Rencana', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteRencana(rencana);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showShoppingOptionsBottomSheet(DaftarBelanjaModel item) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              title: Text(item.namaItem,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${item.jumlahTotal.toStringAsFixed(0)} ${item.satuan}  •  Sumber: ${item.sumber}'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                item.sudahDibeli == 1 ? Icons.check_box_outline_blank : Icons.check_box,
+                color: const Color(0xFF2E7D32),
+              ),
+              title: Text(item.sudahDibeli == 1 ? 'Tandai Belum Dibeli' : 'Tandai Sudah Dibeli'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _belanjaRepo.toggleSudahDibeli(item.id!, item.sudahDibeli);
+                await _loadData();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Hapus Item', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteBelanjaItem(item);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatWaktu(String w) {
     switch (w) {
       case 'SARAPAN': return 'Sarapan';
@@ -771,11 +919,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
     }
   }
 
-  Color _statusColor(String status) =>
-      status == 'AKTIF' ? const Color(0xFF2E7D32) : const Color(0xFF0D47A1);
 
-  IconData _statusIcon(String status) =>
-      status == 'AKTIF' ? Icons.check_circle : Icons.pending;
 
   @override
   Widget build(BuildContext context) {
@@ -821,26 +965,46 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                      color: Color(0xFF2E7D32)),
-                  SizedBox(height: 12),
-                  Text('Memuat data meal plan...',
-                      style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRencanaTab(dietType, macroRatio),
-                _buildBelanjaTab(shoppingDay),
+      body: Stack(
+        children: [
+          _isLoading
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                          color: Color(0xFF2E7D32)),
+                      SizedBox(height: 12),
+                      Text('Memuat data meal plan...',
+                          style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildRencanaTab(dietType, macroRatio),
+                    _buildBelanjaTab(shoppingDay),
+                  ],
+                ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [
+                Colors.green,
+                Colors.blue,
+                Colors.pink,
+                Colors.orange,
+                Colors.purple,
+                Colors.yellow
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -910,6 +1074,35 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
               matrixData: _matrixData,
               hariList: _hariList,
               waktuList: _waktuList,
+              onCellTapped: (hari, waktu) {
+                int col = _hariList.indexOf(hari);
+                int row = _waktuList.indexOf(waktu);
+                int status = 0;
+                if (row >= 0 && col >= 0 && row < _matrixData.length && col < _matrixData[row].length) {
+                  status = _matrixData[row][col];
+                }
+                String statusText = status == 2 
+                    ? 'Aktif' 
+                    : status == 1 
+                        ? 'Direncanakan (DRAFT)' 
+                        : 'Kosong';
+                
+                Fluttertoast.showToast(
+                  msg: "$hari - ${waktu.replaceAll('_', ' ')}: $statusText",
+                  toastLength: Toast.LENGTH_SHORT,
+                  gravity: ToastGravity.BOTTOM,
+                  backgroundColor: status == 2 
+                      ? const Color(0xFF2E7D32) 
+                      : status == 1 
+                          ? const Color(0xFF0D47A1) 
+                          : Colors.grey.shade700,
+                  textColor: Colors.white,
+                  fontSize: 13.0,
+                );
+              },
+              onCellDoubleTapped: (hari, waktu) {
+                _showTambahRencanaDialog(initialHari: hari, initialWaktu: waktu);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -960,15 +1153,39 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
             ),
             const SizedBox(height: 8),
             _rencanaList.isEmpty
-                ? _buildEmptyRencana()
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _rencanaList.length,
-                    itemBuilder: (context, index) {
-                      final r = _rencanaList[index];
-                      return _buildRencanaCard(r);
-                    },
+                ? EmptyStateView(
+                    lottieUrl: 'https://lottie.host/801ba681-36b1-4f9b-bd5b-d45cc4bfa934/1c9Qv8Q3Z0.json',
+                    title: 'Belum ada rencana makan minggu ini.',
+                    description: 'Silakan tambah menu makanan baru ke dalam meal plan mingguan Anda.',
+                    buttonText: 'Tambah Sekarang',
+                    onButtonPressed: _showTambahRencanaDialog,
+                    fallbackIcon: Icons.calendar_today,
+                  )
+                : AnimationLimiter(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _rencanaList.length,
+                      itemBuilder: (context, index) {
+                        final r = _rencanaList[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 375),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              child: MealPlanCard(
+                                rencana: r,
+                                onEditPressed: () => _showEditRencanaDialog(r),
+                                onDeletePressed: () => _deleteRencana(r),
+                                onToggleStatus: () => _toggleRencanaStatus(r),
+                                onLongPress: () => _showMealOptionsBottomSheet(r),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
             const SizedBox(height: 80),
           ],
@@ -1028,15 +1245,23 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
             ]),
             const SizedBox(height: 8),
             Row(children: [
-              _statChip(Icons.pending, '$draftCount DRAFT',
-                  const Color(0xFF0D47A1)),
+              StatChip(
+                icon: Icons.pending,
+                label: '$draftCount DRAFT',
+                color: const Color(0xFF0D47A1),
+              ),
               const SizedBox(width: 8),
-              _statChip(Icons.check_circle, '$aktifCount AKTIF',
-                  const Color(0xFF2E7D32)),
+              StatChip(
+                icon: Icons.check_circle,
+                label: '$aktifCount AKTIF',
+                color: const Color(0xFF2E7D32),
+              ),
               const SizedBox(width: 8),
-              _statChip(Icons.grid_view,
-                  '${_rencanaList.length} Total',
-                  Colors.grey.shade600),
+              StatChip(
+                icon: Icons.grid_view,
+                label: '${_rencanaList.length} Total',
+                color: Colors.grey.shade600,
+              ),
             ]),
           ],
         ),
@@ -1044,141 +1269,7 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
     );
   }
 
-  Widget _statChip(IconData icon, String label, Color color) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                color: color,
-                fontWeight: FontWeight.bold)),
-      ]),
-    );
-  }
-
-  Widget _buildRencanaCard(RencanaMakanModel r) {
-    final color = _statusColor(r.status);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: color.withOpacity(0.3)),
-      ),
-      child: ListTile(
-        leading: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                r.hari.substring(0, 3),
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: color),
-              ),
-            ),
-            const SizedBox(height: 3),
-            Icon(_statusIcon(r.status), size: 14, color: color),
-          ],
-        ),
-        title: Text(r.namaMakanan ?? '-',
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 14),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_formatWaktu(r.waktuMakan)}  •  ${r.jumlahGram.toStringAsFixed(0)}g',
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (r.kaloriPer100g != null)
-              Text(
-                '${((r.kaloriPer100g! * r.jumlahGram) / 100).toStringAsFixed(0)} kkal',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: color,
-                    fontWeight: FontWeight.w600),
-              ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(r.status,
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: color,
-                      fontWeight: FontWeight.bold)),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit,
-                  color: Color(0xFF0D47A1), size: 18),
-              onPressed: () => _showEditRencanaDialog(r),
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline,
-                  color: Colors.red.shade600, size: 18),
-              onPressed: () => _deleteRencana(r),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyRencana() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.calendar_today,
-                size: 56, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text('Belum ada rencana makan minggu ini.',
-                style: TextStyle(
-                    color: Colors.grey.shade500, fontSize: 14)),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Tambah Sekarang'),
-              onPressed: _showTambahRencanaDialog,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBelanjaTab(String shoppingDay) {
-    final belumDibeli =
-        _belanjaList.where((b) => b.sudahDibeli == 0).length;
     final sudahDibeli =
         _belanjaList.where((b) => b.sudahDibeli == 1).length;
     final totalItem = _belanjaList.length;
@@ -1288,117 +1379,64 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
         // ─── LIST DAFTAR BELANJA ─────────────────────────────────────
         Expanded(
           child: _belanjaList.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shopping_cart_outlined,
-                          size: 64, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text('Daftar belanja kosong.',
-                          style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 15)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Aktifkan rencana makan di tab Rencana\natau tambah item manual.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 12),
-                      ),
-                    ],
-                  ),
+              ? const EmptyStateView(
+                  lottieUrl: 'https://lottie.host/df236687-fefd-4e9c-a1f9-9069d273a4d7/4eRtfqX5Pq.json',
+                  title: 'Daftar belanja kosong.',
+                  description: 'Aktifkan rencana makan di tab Rencana atau tambah item manual.',
+                  fallbackIcon: Icons.shopping_cart_outlined,
                 )
               : RefreshIndicator(
                   onRefresh: _loadData,
                   color: const Color(0xFF2E7D32),
-                  child: ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _belanjaList.length,
-                    itemBuilder: (context, index) {
-                      final item = _belanjaList[index];
-                      return _buildBelanjaCard(item);
-                    },
+                  child: AnimationLimiter(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _belanjaList.length,
+                      itemBuilder: (context, index) {
+                        final item = _belanjaList[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 375),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              child: ShoppingItemCard(
+                                item: item,
+                                onToggleChecked: (_) async {
+                                  final currentVal = item.sudahDibeli;
+                                  final newVal = currentVal == 0 ? 1 : 0;
+                                  await _belanjaRepo.toggleSudahDibeli(item.id!, currentVal);
+                                  await _loadData();
+
+                                  if (newVal == 1) {
+                                    final updatedBelanja = await _belanjaRepo.getDaftarBelanja(_mingguKe);
+                                    final allChecked = updatedBelanja.isNotEmpty && updatedBelanja.every((b) => b.sudahDibeli == 1);
+                                    if (allChecked) {
+                                      _confettiController.play();
+                                      if (mounted) {
+                                        Fluttertoast.showToast(
+                                          msg: "Luar biasa! Semua item belanja telah terpenuhi! 🎉",
+                                          toastLength: Toast.LENGTH_LONG,
+                                          gravity: ToastGravity.CENTER,
+                                          backgroundColor: const Color(0xFF2E7D32),
+                                          textColor: Colors.white,
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                                onDeletePressed: () => _deleteBelanjaItem(item),
+                                onLongPress: () => _showShoppingOptionsBottomSheet(item),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBelanjaCard(DaftarBelanjaModel item) {
-    final isBeli = item.sudahDibeli == 1;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      elevation: isBeli ? 0 : 1,
-      color: isBeli ? Colors.grey.shade100 : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isBeli
-              ? Colors.grey.shade300
-              : item.sumber == 'auto'
-                  ? const Color(0xFF81C784)
-                  : Colors.blue.shade200,
-        ),
-      ),
-      child: ListTile(
-        leading: Checkbox(
-          value: isBeli,
-          activeColor: const Color(0xFF2E7D32),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4)),
-          onChanged: (_) async {
-            await _belanjaRepo.toggleSudahDibeli(
-                item.id!, item.sudahDibeli);
-            await _loadData();
-          },
-        ),
-        title: Text(
-          item.namaItem,
-          style: TextStyle(
-            decoration:
-                isBeli ? TextDecoration.lineThrough : null,
-            color: isBeli ? Colors.grey : null,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Row(children: [
-          Text(
-            '${item.jumlahTotal.toStringAsFixed(0)} ${item.satuan}',
-            style: TextStyle(
-                color: isBeli ? Colors.grey.shade400 : null,
-                fontSize: 12),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: item.sumber == 'auto'
-                  ? const Color(0xFFE8F5E9)
-                  : Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              item.sumber == 'auto' ? '🔄 Auto' : '✏️ Manual',
-              style: TextStyle(
-                  fontSize: 10,
-                  color: item.sumber == 'auto'
-                      ? const Color(0xFF2E7D32)
-                      : Colors.blue.shade700),
-            ),
-          ),
-        ]),
-        trailing: IconButton(
-          icon: Icon(Icons.delete_outline,
-              color: Colors.red.shade400, size: 20),
-          tooltip: 'Hapus item',
-          onPressed: () => _deleteBelanjaItem(item),
-        ),
-      ),
     );
   }
 }

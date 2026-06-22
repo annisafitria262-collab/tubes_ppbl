@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/database/db_helper.dart';
 import '../../../core/utils/shared_prefs_helper.dart'; 
 import '../models/evaluasi_model.dart';
@@ -351,10 +352,16 @@ class _EvaluasiListScreenState extends State<EvaluasiListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text("🥗", style: TextStyle(fontSize: 80)),
+          Lottie.asset(
+            'assets/lotties/empty_data.json',
+            width: 250,
+            height: 250,
+            fit: BoxFit.contain,
+          ),
           const SizedBox(height: 16),
           Text("Belum ada history evaluasi.", 
             style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
           const Text("Yuk, mulai catat nutrisimu hari ini!", 
             style: TextStyle(color: Colors.grey)),
         ],
