@@ -18,6 +18,9 @@ import 'features/domain_eval/screens/settings_screen.dart';      // 3. Kabel dis
 // ---> TAMBAHAN: IMPORT LAYAR LOGIN <---
 import 'features/domain_eval/screens/login_screen.dart'; 
 
+// ---> TAMBAHAN: IMPORT LAYAR PROFIL <---
+import 'features/profile/screens/profile_screen.dart';
+
 void main() async {
   // Wajib dipanggil sebelum mengeksekusi kode async (await) di main
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +81,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       const InputMakananScreen(),             // Index 1: Jurnal Makanan
       const RencanaMakanScreen(),             // Index 2: Meal Plan
       const EvaluasiListScreen(),             // Index 3: Evaluasi
+      const ProfileScreen(),                  // Index 4: Profil Pengguna (BARU)
     ];
 
     return Scaffold(
@@ -106,6 +110,11 @@ class _MainNavigatorState extends State<MainNavigator> {
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Evaluasi', 
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profil',
           ),
         ],
       ),
