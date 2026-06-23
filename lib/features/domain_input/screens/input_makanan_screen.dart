@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:intl/intl.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/makanan_model.dart';
 import '../models/log_konsumsi_model.dart';
 import '../repositories/makanan_repository.dart';
 import '../repositories/log_konsumsi_repository.dart';
 import '../services/api_service.dart';
 import '../widgets/macro_arc_dashboard.dart';
+import '../widgets/nutrition_donut_widget.dart';
+import '../widgets/calorie_burn_timeline.dart';
 import '../../../core/utils/shared_prefs_helper.dart';
 
 class InputMakananScreen extends StatefulWidget {
@@ -31,6 +34,7 @@ class _InputMakananScreenState extends State<InputMakananScreen>
   double _lemakAktual = 0;
   List<LogKonsumsiModel> _logHariIni = [];
   bool _isLoading = true;
+  bool _isOffline = false;
   final String _hariIni = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   // Filter waktu makan: 0=Semua, 1=Sarapan, 2=Makan Siang, 3=Makan Malam, 4=Camilan
@@ -52,6 +56,16 @@ class _InputMakananScreenState extends State<InputMakananScreen>
       }
     });
     _loadDataHarian();
+    _checkConnectivity();
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    if (mounted) {
+      setState(() {
+        _isOffline = result.contains(ConnectivityResult.none) || result.isEmpty;
+      });
+    }
   }
 
   @override
@@ -666,20 +680,31 @@ class _InputMakananScreenState extends State<InputMakananScreen>
                     _buildSharedPrefsBanner(targetKalori, ratioStr, sisa),
                     const SizedBox(height: 16),
 
-                    // ─── MACRO ARC DASHBOARD ────────────────────────────────
+                    // ─── NUTRITION DONUT (Custom Widget Interaktif) ──────────
+                    // Widget baru: donut chart interaktif dengan animasi fill
+                    // dan tap-to-detail per makro. Tap chip untuk highlight.
                     Center(
-                      child: MacroArcDashboard(
+                      child: NutritionDonutWidget(
                         kaloriAktual: _kaloriAktual,
                         kaloriTarget: targetKalori,
-                        persenKarbo: persenKarbo.clamp(0.0, 1.0),
-                        persenProtein: persenProtein.clamp(0.0, 1.0),
-                        persenLemak: persenLemak.clamp(0.0, 1.0),
                         proteinAktual: _proteinAktual,
+                        proteinTarget: targetKalori * macroRatio['protein']! / 4,
                         karboAktual: _karboAktual,
+                        karboTarget: targetKalori * macroRatio['karbo']! / 4,
                         lemakAktual: _lemakAktual,
+                        lemakTarget: targetKalori * macroRatio['lemak']! / 9,
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // ─── CALORIE BURN TIMELINE ───────────────────────────────
+                    // Widget baru: timeline makan hari ini per sesi waktu.
+                    // Tap tiap sesi untuk expand daftar makanan.
+                    CalorieBurnTimeline(
+                      allLogs: _logHariIni,
+                      kaloriTarget: targetKalori,
+                    ),
+                    const SizedBox(height: 8),
 
                     // ─── SEARCH API (TypeAhead) ──────────────────────────────
                     Row(
@@ -699,6 +724,33 @@ class _InputMakananScreenState extends State<InputMakananScreen>
                       ],
                     ),
                     const SizedBox(height: 8),
+                    // Tampilkan nama makanan terakhir yang dicari via API
+                    Builder(builder: (context) {
+                      final lastName = SharedPrefsHelper.cachedMealName;
+                      final lastDate = SharedPrefsHelper.lastApiDate;
+                      if (lastName.isEmpty || lastDate.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      final isToday = lastDate == _hariIni;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history,
+                                size: 13, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              isToday
+                                  ? 'Terakhir dicari hari ini: $lastName'
+                                  : 'Terakhir dicari ($lastDate): $lastName',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     TypeAheadField<MakananModel>(
                       controller: _searchController,
                       builder: (context, controller, focusNode) {
@@ -745,13 +797,23 @@ class _InputMakananScreenState extends State<InputMakananScreen>
                           ],
                         ),
                       ),
-                      emptyBuilder: (context) => const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: Text('Makanan tidak ditemukan. Coba tambahkan manual.',
-                            style: TextStyle(color: Colors.grey)),
+                      emptyBuilder: (context) => Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          _isOffline
+                              ? 'Tidak ada koneksi internet. Tambahkan makanan secara manual.'
+                              : 'Makanan tidak ditemukan. Coba tambahkan manual.',
+                          style: TextStyle(
+                            color: _isOffline
+                                ? Colors.orange.shade700
+                                : Colors.grey,
+                          ),
+                        ),
                       ),
                       suggestionsCallback: (pattern) async {
                         if (pattern.length < 3) return [];
+                        await _checkConnectivity();
+                        if (_isOffline) return [];
                         return await _apiService.searchFoodItem(pattern);
                       },
                       itemBuilder: (context, MakananModel suggestion) {
@@ -782,6 +844,11 @@ class _InputMakananScreenState extends State<InputMakananScreen>
                         );
                       },
                       onSelected: (MakananModel suggestion) {
+                        // Cache nama & tanggal makanan dari API ke SharedPrefs
+                        if (suggestion.sumber == 'open_food_facts') {
+                          SharedPrefsHelper.setCachedMealName(suggestion.nama);
+                          SharedPrefsHelper.setLastApiDate(_hariIni);
+                        }
                         _onMakananTerpilih(suggestion);
                       },
                     ),
