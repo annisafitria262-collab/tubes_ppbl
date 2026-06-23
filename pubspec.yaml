@@ -28,6 +28,7 @@ dependencies:
   # ==========================================
   dio: ^5.4.0
   flutter_typeahead: ^5.2.0
+  connectivity_plus: ^6.0.3  # Cek koneksi sebelum hit Open Food Facts API
 
   # ==========================================
   # DOMAIN 2: ACA (Planning & Logistik)

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-class MacroArcDashboard extends StatelessWidget {
+class MacroArcDashboard extends StatefulWidget {
   final double kaloriAktual;
   final double kaloriTarget;
   final double persenKarbo;
@@ -23,14 +23,46 @@ class MacroArcDashboard extends StatelessWidget {
     this.lemakAktual = 0,
   });
 
-  double get _progressKeseluruhan =>
-      kaloriTarget > 0 ? (kaloriAktual / kaloriTarget).clamp(0.0, 1.0) : 0.0;
+  @override
+  State<MacroArcDashboard> createState() => _MacroArcDashboardState();
+}
 
-  bool get _isOver => kaloriAktual > kaloriTarget;
+class _MacroArcDashboardState extends State<MacroArcDashboard> {
+  // Index chip yang sedang di-highlight: 0=Karbo, 1=Protein, 2=Lemak, -1=none
+  int _selectedChip = -1;
+
+  double get _progressKeseluruhan =>
+      widget.kaloriTarget > 0
+          ? (widget.kaloriAktual / widget.kaloriTarget).clamp(0.0, 1.0)
+          : 0.0;
+
+  bool get _isOver => widget.kaloriAktual > widget.kaloriTarget;
+
+  void _onChipTap(int index) {
+    setState(() {
+      _selectedChip = _selectedChip == index ? -1 : index;
+    });
+  }
+
+  String _getChipHint(int index) {
+    switch (index) {
+      case 0:
+        final target = widget.kaloriTarget * 0.50 / 4;
+        return 'Target karbo: ${target.toStringAsFixed(0)}g';
+      case 1:
+        final target = widget.kaloriTarget * 0.25 / 4;
+        return 'Target protein: ${target.toStringAsFixed(0)}g';
+      case 2:
+        final target = widget.kaloriTarget * 0.25 / 9;
+        return 'Target lemak: ${target.toStringAsFixed(0)}g';
+      default:
+        return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final sisa = kaloriTarget - kaloriAktual;
+    final sisa = widget.kaloriTarget - widget.kaloriAktual;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -45,11 +77,12 @@ class MacroArcDashboard extends StatelessWidget {
               CustomPaint(
                 size: const Size(230, 230),
                 painter: MacroArcPainter(
-                  persenKarbo: persenKarbo,
-                  persenProtein: persenProtein,
-                  persenLemak: persenLemak,
+                  persenKarbo: widget.persenKarbo,
+                  persenProtein: widget.persenProtein,
+                  persenLemak: widget.persenLemak,
                   progressKeseluruhan: _progressKeseluruhan,
                   isOver: _isOver,
+                  highlightedArc: _selectedChip,
                 ),
               ),
               // Teks di tengah
@@ -57,7 +90,7 @@ class MacroArcDashboard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${kaloriAktual.toInt()}',
+                    '${widget.kaloriAktual.toInt()}',
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
@@ -65,14 +98,13 @@ class MacroArcDashboard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '/ ${kaloriTarget.toInt()} kkal',
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.grey),
+                    '/ ${widget.kaloriTarget.toInt()} kkal',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: _isOver
                           ? Colors.red.withOpacity(0.1)
@@ -98,34 +130,57 @@ class MacroArcDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        // Progress bar keseluruhan
         _buildProgressBar(),
         const SizedBox(height: 12),
-        // Chip legend makro (data real dari SQLite)
+        // Chip legend makro – tap untuk highlight arc & tampilkan target
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _MacroChip(
               color: const Color(0xFFEF9F27),
               label: 'Karbo',
-              value: karboAktual,
-              persen: persenKarbo,
+              value: widget.karboAktual,
+              persen: widget.persenKarbo,
+              isSelected: _selectedChip == 0,
+              onTap: () => _onChipTap(0),
             ),
             const SizedBox(width: 8),
             _MacroChip(
               color: const Color(0xFF0D47A1),
               label: 'Protein',
-              value: proteinAktual,
-              persen: persenProtein,
+              value: widget.proteinAktual,
+              persen: widget.persenProtein,
+              isSelected: _selectedChip == 1,
+              onTap: () => _onChipTap(1),
             ),
             const SizedBox(width: 8),
             _MacroChip(
               color: const Color(0xFFEF5350),
               label: 'Lemak',
-              value: lemakAktual,
-              persen: persenLemak,
+              value: widget.lemakAktual,
+              persen: widget.persenLemak,
+              isSelected: _selectedChip == 2,
+              onTap: () => _onChipTap(2),
             ),
           ],
+        ),
+        // Hint info muncul saat chip di-tap
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _selectedChip >= 0
+              ? Padding(
+                  key: ValueKey(_selectedChip),
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _getChipHint(_selectedChip),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey(-1)),
         ),
       ],
     );
@@ -176,25 +231,36 @@ class _MacroChip extends StatelessWidget {
   final String label;
   final double value;
   final double persen;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   const _MacroChip({
     required this.color,
     required this.label,
     required this.value,
     required this.persen,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isOver = persen > 1.0;
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: isSelected ? color.withOpacity(0.2) : color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isOver ? Colors.red.shade300 : color.withOpacity(0.4),
-          width: isOver ? 1.5 : 1,
+          color: isSelected
+              ? color
+              : isOver
+                  ? Colors.red.shade300
+                  : color.withOpacity(0.4),
+          width: isSelected ? 2 : (isOver ? 1.5 : 1),
         ),
       ),
       child: Column(
@@ -231,7 +297,7 @@ class _MacroChip extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -242,6 +308,8 @@ class MacroArcPainter extends CustomPainter {
   final double persenLemak;
   final double progressKeseluruhan;
   final bool isOver;
+  // -1 = tidak ada yang di-highlight, 0=Karbo, 1=Protein, 2=Lemak
+  final int highlightedArc;
 
   MacroArcPainter({
     required this.persenKarbo,
@@ -249,6 +317,7 @@ class MacroArcPainter extends CustomPainter {
     required this.persenLemak,
     required this.progressKeseluruhan,
     required this.isOver,
+    this.highlightedArc = -1,
   });
 
   @override
@@ -288,9 +357,12 @@ class MacroArcPainter extends CustomPainter {
     }
 
     // ── Arc Luar: Karbohidrat ───────────────────────────────────────
+    final karboWidth = highlightedArc == 0 ? 18.0 : (highlightedArc == -1 ? 12.0 : 8.0);
     final paintKarbo = Paint()
-      ..color = const Color(0xFFEF9F27)
-      ..strokeWidth = 12
+      ..color = highlightedArc == 0
+          ? const Color(0xFFEF9F27)
+          : const Color(0xFFEF9F27).withOpacity(highlightedArc == -1 ? 1.0 : 0.35)
+      ..strokeWidth = karboWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -305,9 +377,12 @@ class MacroArcPainter extends CustomPainter {
     }
 
     // ── Arc Tengah: Protein ─────────────────────────────────────────
+    final proteinWidth = highlightedArc == 1 ? 18.0 : (highlightedArc == -1 ? 12.0 : 8.0);
     final paintProtein = Paint()
-      ..color = const Color(0xFF0D47A1)
-      ..strokeWidth = 12
+      ..color = highlightedArc == 1
+          ? const Color(0xFF0D47A1)
+          : const Color(0xFF0D47A1).withOpacity(highlightedArc == -1 ? 1.0 : 0.35)
+      ..strokeWidth = proteinWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -322,9 +397,12 @@ class MacroArcPainter extends CustomPainter {
     }
 
     // ── Arc Dalam: Lemak ───────────────────────────────────────────
+    final lemakWidth = highlightedArc == 2 ? 18.0 : (highlightedArc == -1 ? 12.0 : 8.0);
     final paintLemak = Paint()
-      ..color = const Color(0xFFEF5350)
-      ..strokeWidth = 12
+      ..color = highlightedArc == 2
+          ? const Color(0xFFEF5350)
+          : const Color(0xFFEF5350).withOpacity(highlightedArc == -1 ? 1.0 : 0.35)
+      ..strokeWidth = lemakWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -349,6 +427,7 @@ class MacroArcPainter extends CustomPainter {
         oldDelegate.persenProtein != persenProtein ||
         oldDelegate.persenLemak != persenLemak ||
         oldDelegate.progressKeseluruhan != progressKeseluruhan ||
-        oldDelegate.isOver != isOver;
+        oldDelegate.isOver != isOver ||
+        oldDelegate.highlightedArc != highlightedArc;
   }
 }
