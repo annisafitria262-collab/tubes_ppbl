@@ -1,35 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'features/domain_eval/screens/home_screen.dart';
 
 // Import Core
 import 'core/theme/theme.dart';
 import 'core/utils/shared_prefs_helper.dart';
 
-// Import Services
+// Import Services (Milik Temanmu)
 import 'features/domain_plan/services/notification_service.dart';
 
 // Import Screens (Milik Athaya, Aca, dan Annisa)
 import 'features/domain_input/screens/input_makanan_screen.dart';
 import 'features/domain_plan/screens/rencana_makan_screen.dart';
-import 'features/domain_eval/screens/evaluasi_list_screen.dart'; // 2. Kabel disambung ke layar baru Annisa
-import 'features/domain_eval/screens/settings_screen.dart';      // 3. Kabel disambung ke pengaturan Annisa
-
-// ---> TAMBAHAN: IMPORT LAYAR LOGIN <---
-import 'features/domain_eval/screens/login_screen.dart'; 
-
-// ---> TAMBAHAN: IMPORT LAYAR PROFIL <---
+import 'features/domain_eval/screens/evaluasi_list_screen.dart';
+import 'features/domain_eval/screens/settings_screen.dart'; // Tetap di-import meski tidak di nav bawah
+import 'features/domain_eval/screens/home_screen.dart';
+import 'features/domain_eval/screens/login_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
 
 void main() async {
   // Wajib dipanggil sebelum mengeksekusi kode async (await) di main
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Inisialisasi bawaan temanmu (Aman!)
+  // Inisialisasi memori dan notifikasi
   await SharedPrefsHelper.init();
   await NotificationService.init();
 
-  // Inisialisasi bawaan Annisa (Aman!)
+  // Inisialisasi format tanggal (id_ID)
   await initializeDateFormatting('id_ID', null);
 
   runApp(const FitPlateApp());
@@ -44,11 +40,10 @@ class FitPlateApp extends StatelessWidget {
       title: 'FitPlate',
       debugShowCheckedModeBanner: false,
       
-      // Memanggil tema kustom dengan warna utama Fresh Green (#2E7D32)
+      // Memanggil tema kustom dengan warna utama Fresh Green
       theme: AppTheme.lightTheme, 
       
-      // ---> SAKELAR PINTU MASUK <---
-      // Jika sudah login, masuk ke MainNavigator. Jika belum, lempar ke LoginScreen.
+      // ---> SAKELAR PINTU MASUK (Logika Annisa dipertahankan) <---
       home: SharedPrefsHelper.isLoggedIn ? const MainNavigator() : const LoginScreen(), 
     );
   }
@@ -74,23 +69,21 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   @override
   Widget build(BuildContext context) {
-    // Daftar screens diPINDAHKAN ke dalam fungsi build()!
-    // Karena di dalam sini, fungsi _onItemTapped sudah "hidup" dan siap dipanggil.
+    // Daftar screens di dalam build() agar bisa mem-passing _onItemTapped
     final List<Widget> screens = [
       HomeScreen(onNavigate: _onItemTapped),  // Index 0: Tampilan Awal
-      const InputMakananScreen(),             // Index 1: Jurnal Makanan
-      const RencanaMakanScreen(),             // Index 2: Meal Plan
-      const EvaluasiListScreen(),             // Index 3: Evaluasi
-      const ProfileScreen(),                  // Index 4: Profil Pengguna (BARU)
+      const InputMakananScreen(),             // Index 1: Jurnal Makanan (Teman)
+      const RencanaMakanScreen(),             // Index 2: Meal Plan (Teman)
+      const EvaluasiListScreen(),             // Index 3: Evaluasi (Annisa)
+      const ProfileScreen(),                  // Index 4: Profil Pengguna (Teman)
     ];
 
     return Scaffold(
-      // Manggil layarnya sekarang pakai 'screens' (tanpa underscore)
       body: screens[_selectedIndex], 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
+        type: BottomNavigationBarType.fixed, // Mencegah bug visual jika tab >= 4
         selectedItemColor: const Color(0xFF2E7D32),
         unselectedItemColor: Colors.grey,
         items: const [

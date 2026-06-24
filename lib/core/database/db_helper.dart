@@ -23,7 +23,7 @@ class DatabaseHelper {
       databaseFactory = databaseFactoryFfiWeb;
       return await openDatabase(
         filePath,
-        version: 5, 
+        version: 7, // ---> NAIK VERSI JADI 7 BIAR TABEL ACA TERBUAT!
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
         onConfigure: _onConfigure,
@@ -33,7 +33,7 @@ class DatabaseHelper {
       final path = join(dbPath, filePath);
       return await openDatabase(
         path,
-        version: 6,
+        version: 7, // ---> NAIK VERSI JADI 7 BIAR TABEL ACA TERBUAT!
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
         onConfigure: _onConfigure,
@@ -122,6 +122,17 @@ class DatabaseHelper {
       )
     ''');
 
+    // ---> TAMBAHAN KODE ACA DI SINI <---
+    await db.execute('''
+      CREATE TABLE pengingat_notifikasi (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        judul TEXT NOT NULL,
+        hari TEXT NOT NULL,
+        jam TEXT NOT NULL,
+        aktif INTEGER DEFAULT 1
+      )
+    ''');
+
     // ==========================================
     // DOMAIN 3 (ANNISA): EVALUASI — JANGAN DISENTUH
     // ==========================================
@@ -187,6 +198,19 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE evaluasi_harian ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
       } catch (_) {}
+    }
+
+    // ---> TAMBAHAN MEKANISME UPGRADE ACA DI SINI <---
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pengingat_notifikasi (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          judul TEXT NOT NULL,
+          hari TEXT NOT NULL,
+          jam TEXT NOT NULL,
+          aktif INTEGER DEFAULT 1
+        )
+      ''');
     }
   }
 

@@ -34,6 +34,12 @@ class SharedPrefsHelper {
   static Future<void> setShoppingDay(String value) async => 
       await _prefs.setString('shopping_day', value);
 
+  static String get lastShoppingNotificationDate => 
+      _prefs.getString('last_shopping_notification_date') ?? "";
+      
+  static Future<void> setLastShoppingNotificationDate(String value) async => 
+      await _prefs.setString('last_shopping_notification_date', value);
+
   static String get defaultDietType => 
       _prefs.getString('default_diet_type') ?? "BALANCED";
       

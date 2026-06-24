@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:convert';
 import '../../../core/utils/shared_prefs_helper.dart';
-import '../../../core/database/db_helper.dart';
+import '../../../core/database/db_helper.dart'; // Pastikan path ini benar sesuai punyamu
 import '../../domain_eval/models/evaluasi_model.dart';
 import 'settings_screen.dart';
 
@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (evals[i].status == 'TERCAPAI') {
           streak++;
         } else {
-          break; // Streak terput as jika ketemu yang tidak tercapai
+          break; // Streak terputus jika ketemu yang tidak tercapai
         }
       }
 
@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (causeCounts.isNotEmpty) {
           String dominantCause = "";
           int maxCount = -1;
-          int minIndex = 999999; // Semakin kecil index, semakin baru datanya (dekat ke hari ini)
+          int minIndex = 999999; // Semakin kecil index, semakin baru datanya
 
           causeCounts.forEach((cause, count) {
             if (count > maxCount) {
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
               dominantCause = cause;
               minIndex = recencyIndex[cause]!;
             } else if (count == maxCount) {
-              // KALAU SERI: Menangkan data yang index-nya LEBIH KECIL (artinya lebih baru/dekat ke hari ini)
+              // KALAU SERI: Menangkan data yang index-nya LEBIH KECIL (lebih baru)
               if (recencyIndex[cause]! < minIndex) {
                 dominantCause = cause;
                 minIndex = recencyIndex[cause]!;
@@ -145,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return "MALAM";
   }
 
-  // FUNGSI INI SEKARANG DIPAKAI! (Biar gak kuning)
   String _getMealTitle() {
     String period = _getCurrentPeriod();
     if (period == "PAGI") return "Inspirasi Sarapan";
@@ -209,6 +208,9 @@ class _HomeScreenState extends State<HomeScreen> {
     String userName = SharedPrefsHelper.loggedInUserName;
     var greeting = _getDynamicGreeting();
 
+    // Ambil inisial nama untuk Avatar
+    String initial = userName.isNotEmpty ? userName[0].toUpperCase() : "U";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), 
       body: SingleChildScrollView(
@@ -216,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ==========================================
-            // 1. HERO HEADER (HIJAU GRADIENT)
+            // 1. HERO HEADER (HIJAU GRADIENT DENGAN AVATAR PROFIL)
             // ==========================================
             Container(
               padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 40),
@@ -236,9 +238,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text("${greeting['icon']} ${greeting['text']}", style: TextStyle(fontSize: 14, color: Colors.green[100])),
-                      IconButton(
-                        icon: const Icon(Icons.settings, color: Colors.white, size: 22),
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+                      
+                      // ---> PERUBAHAN: AVATAR PROFIL PENGGANTI TOMBOL SETTINGS <---
+                      GestureDetector(
+                        onTap: () {
+                          // Arahkan ke Tab Profil. Jika profil urutan ke-4, berarti indexnya 3.
+                          // Ganti angka 3 di bawah ini kalau index profilmu beda!
+                          widget.onNavigate(4); 
+                        },
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          child: Text(
+                            initial,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -322,7 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => widget.onNavigate(3), 
+                        // Karena Profil pindah, kita asumsikan Evaluasi tetap bisa dipanggil dari index evaluasi di main.dart
+                        // Sesuaikan onNavigate(2) atau (3) tergantung index Evaluasi di BottomNavBar kamu
+                        onPressed: () => widget.onNavigate(2), 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF283593),
@@ -348,7 +365,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // DI SINI FUNGSI _getMealTitle() DIPANGGIL BIAR GAK KUNING!
                   Text(_getMealTitle(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
                   const SizedBox(height: 15),
                   Container(
@@ -414,13 +430,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Expanded(child: _buildActionCard(context, "Jurnal Nutrisi", "Catat asupan", Icons.restaurant_menu, Colors.teal, () => widget.onNavigate(1))),
                       const SizedBox(width: 15),
-                      Expanded(child: _buildActionCard(context, "Meal Plan", "Jadwal diet", Icons.calendar_month, Colors.blue, () => widget.onNavigate(2))),
+                      Expanded(child: _buildActionCard(context, "Evaluasi Diet", "Lasso Analytics", Icons.analytics, Colors.indigo, () => widget.onNavigate(2))),
                     ],
                   ),
                   const SizedBox(height: 15),
                   Row(
                     children: [
-                      Expanded(child: _buildActionCard(context, "Evaluasi Diet", "Lasso Analytics", Icons.analytics, Colors.indigo, () => widget.onNavigate(3))),
+                      Expanded(child: _buildActionCard(context, "Profil Saya", "Statistikmu", Icons.person, Colors.blue, () => widget.onNavigate(3))),
                       const SizedBox(width: 15),
                       Expanded(child: _buildActionCard(context, "Pengaturan", "Sistem diet", Icons.settings, Colors.grey, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())))),
                     ],

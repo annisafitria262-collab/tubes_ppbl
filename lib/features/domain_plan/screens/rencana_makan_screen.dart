@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../widgets/weekly_meal_matrix.dart';
 import '../models/rencana_makan_model.dart';
 import '../models/daftar_belanja_model.dart';
@@ -9,6 +10,7 @@ import '../../domain_input/repositories/makanan_repository.dart';
 import '../../domain_input/models/makanan_model.dart';
 import '../services/notification_service.dart';
 import '../../../core/utils/shared_prefs_helper.dart';
+import 'jadwal_notifikasi_screen.dart';
 
 // Custom Widgets
 import '../widgets/stat_chip.dart';
@@ -65,6 +67,23 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _selectedDay = _focusedDay;
     _loadData();
+    _checkAndShowShoppingNotification();
+  }
+
+  void _checkAndShowShoppingNotification() async {
+    // Dapatkan nama hari ini dalam Bahasa Indonesia
+    String hariIni = DateFormat('EEEE', 'id_ID').format(DateTime.now());
+    String shoppingDay = SharedPrefsHelper.shoppingDay;
+
+    if (hariIni.toLowerCase() == shoppingDay.toLowerCase()) {
+      String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String lastNotificationDate = SharedPrefsHelper.lastShoppingNotificationDate;
+
+      if (lastNotificationDate != todayStr) {
+        await NotificationService.tampilkanNotifikasiBelanja();
+        await SharedPrefsHelper.setLastShoppingNotificationDate(todayStr);
+      }
+    }
   }
 
   @override
@@ -943,6 +962,16 @@ class _RencanaMakanScreenState extends State<RencanaMakanScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.alarm),
+            tooltip: 'Pengingat Kustom',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const JadwalNotifikasiScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_active),
             tooltip: 'Test Notifikasi Belanja',
